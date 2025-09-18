@@ -1,45 +1,37 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { firestore } from '../firebase/firebase.config';
+import { TASK_REPOSITORY } from './domain/task.tokens';
+import type { TaskRepository } from './domain/task.repository';
 
 @Injectable()
 export class TasksService {
-  private taskCollection = firestore.collection('tasks');
+  constructor(
+    @Inject(TASK_REPOSITORY)
+    private readonly repo: TaskRepository,
+  ) {}
 
   async create(createTaskDto: CreateTaskDto) {
-    const docRef = await this.taskCollection.add(createTaskDto as any);
-    return { id: docRef.id, ...createTaskDto };
+    return this.repo.create(createTaskDto as any);
   }
 
   async findAll() {
-    const snapshot = await this.taskCollection.get();
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return this.repo.findAll();
   }
 
   async findOne(id: string) {
-    const docRef = this.taskCollection.doc(id);
-    const task = await docRef.get();
-    if (!task.exists) throw new NotFoundException(`Task ${id} no encontrada`);
-    return { id: task.id, ...task.data() } as any;
+    return this.repo.findOne(id);
   }
 
   async update(id: string, updateTaskDto: UpdateTaskDto) {
-    await this.taskCollection.doc(id).update({ ...updateTaskDto } as any);
-    return { id, ...updateTaskDto } as any;
+    return this.repo.update(id, updateTaskDto as any);
   }
 
   async remove(id: string) {
-    await this.taskCollection.doc(id).delete();
-    return { message: `Task ${id} eliminada` };
+    return this.repo.remove(id);
   }
 
   async health() {
-    try {
-      await this.taskCollection.limit(1).get();
-      return { connected: true };
-    } catch (error: any) {
-      return { connected: false, error: error?.message || String(error) };
-    }
+    return this.repo.health();
   }
 }
